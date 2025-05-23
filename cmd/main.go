@@ -89,6 +89,10 @@ type Options struct {
 	// It requires a query to be provided as a positional argument.
 	Quiet                  bool     `json:"quiet,omitempty"`
 	MCPServer              bool     `json:"mcpServer,omitempty"`
+	MCPTransport           string   `json:"mcp_transport"`
+	MCPSSESchema           string   `json:"mcp_sse_schema"`
+	MCPSSEHost             string   `json:"mcp_sse_host"`
+	MCPSSEPort             int      `json:"mcp_sse_port"`
 	MaxIterations          int      `json:"maxIterations,omitempty"`
 	KubeConfigPath         string   `json:"kubeConfigPath,omitempty"`
 	PromptTemplateFilePath string   `json:"promptTemplateFilePath,omitempty"`
@@ -141,6 +145,10 @@ func (o *Options) InitDefaults() {
 	o.EnableToolUseShim = false
 	o.Quiet = false
 	o.MCPServer = false
+	o.MCPTransport = "stdio"
+	o.MCPSSESchema = "http"
+	o.MCPSSEHost = "127.0.0.1"
+	o.MCPSSEPort = 80
 	o.MaxIterations = 20
 	o.KubeConfigPath = ""
 	o.PromptTemplateFilePath = ""
@@ -281,6 +289,10 @@ func (opt *Options) bindCLIFlags(f *pflag.FlagSet) error {
 	f.StringVar(&opt.ModelID, "model", opt.ModelID, "language model e.g. gemini-2.0-flash-thinking-exp-01-21, gemini-2.0-flash")
 	f.BoolVar(&opt.SkipPermissions, "skip-permissions", opt.SkipPermissions, "(dangerous) skip asking for confirmation before executing kubectl commands that modify resources")
 	f.BoolVar(&opt.MCPServer, "mcp-server", opt.MCPServer, "run in MCP server mode")
+	f.StringVar(&opt.MCPTransport, "mcp-transport", opt.MCPTransport, "MCP Transport type (stdio or sse)")
+	f.StringVar(&opt.MCPSSESchema, "mcp-sse-schema", opt.MCPSSESchema, "Schema for SSE transport")
+	f.StringVar(&opt.MCPSSEHost, "mcp-sse-host", opt.MCPSSEHost, "Host for SSE transport")
+	f.IntVar(&opt.MCPSSEPort, "mcp-sse-port", opt.MCPSSEPort, "Port for SSE transport")
 	f.StringArrayVar(&opt.ToolConfigPath, "custom-tools-config", opt.ToolConfigPath, "path to custom tools config file")
 	f.BoolVar(&opt.EnableToolUseShim, "enable-tool-use-shim", opt.EnableToolUseShim, "enable tool use shim")
 	f.BoolVar(&opt.Quiet, "quiet", opt.Quiet, "run in non-interactive mode, requires a query to be provided as a positional argument")
@@ -658,7 +670,8 @@ func startMCPServer(ctx context.Context, opt Options) error {
 	if err := os.MkdirAll(workDir, 0o755); err != nil {
 		return fmt.Errorf("error creating work directory: %w", err)
 	}
-	mcpServer, err := newKubectlMCPServer(ctx, opt.KubeConfigPath, tools.Default(), workDir)
+	mcpServer, err := newKubectlMCPServer(ctx, opt.KubeConfigPath, opt.MCPTransport, opt.MCPSSESchema,
+		opt.MCPSSEHost, opt.MCPSSEPort, tools.Default(), workDir)
 	if err != nil {
 		return fmt.Errorf("creating mcp server: %w", err)
 	}

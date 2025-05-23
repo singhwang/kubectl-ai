@@ -1,0 +1,103 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-k8s
+  namespace: suse-summit
+spec:
+  selector:
+    app: mcp-k8s
+  ports:
+    - protocol: TCP
+      port: 8086
+      targetPort: 8086
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-k8s
+  namespace: suse-summit
+  labels:
+    app: mcp-k8s
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-k8s
+  template:
+    metadata:
+      labels:
+        app: mcp-k8s
+    spec:
+      containers:
+        - name: mcp-k8s
+          image: wangx/kubectl-ai-mcp-helper:suse-summit
+          imagePullPolicy: Always
+          command:
+            - /app/bin/kubectl-ai
+          args:
+            - "--quiet"
+            - "--llm-provider"
+            - "openai"
+            - "--model"
+            - "gpt-4.1"
+            - "--mcp-server"
+            - "--mcp-transport"
+            - "sse"
+            - "--mcp-sse-schema"
+            - "http"
+            - "--mcp-sse-host"
+            - "mcp-k8s.suse-summit"
+            - "--mcp-sse-port"
+            - "8086"
+            - "--kubeconfig"
+            - "/app/config/config.yaml"
+          env:
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-k8s
+                  key: OPENAI_API_KEY
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+      volumes:
+        - name: config
+          configMap:
+            name: mcp-k8s
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mcp-k8s
+  namespace: suse-summit
+type: Opaque
+stringData:
+  OPENAI_API_KEY: ""
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-k8s
+  namespace: suse-summit
+data:
+  config.yaml: |
+    apiVersion: v1
+    clusters:
+    - cluster:
+        certificate-authority-data: ""
+        server: https://172.31.94.184:6443
+      name: default
+    contexts:
+    - context:
+        cluster: default
+        user: default
+        namespace: default
+      name: default
+    current-context: default
+    kind: Config
+    preferences: {}
+    users:
+    - name: default
+      user:
+        client-certificate-data: ""
+        client-key-data: ""

@@ -17,6 +17,7 @@ package main
 import (
 	"context"
 	"fmt"
+
 	"github.com/GoogleCloudPlatform/kubectl-ai/pkg/tools"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -25,14 +26,22 @@ import (
 
 type kubectlMCPServer struct {
 	kubectlConfig string
+	transport     string
+	sseSchema     string
+	sseHost       string
+	ssePort       int
 	server        *server.MCPServer
 	tools         tools.Tools
 	workDir       string
 }
 
-func newKubectlMCPServer(ctx context.Context, kubectlConfig string, tools tools.Tools, workDir string) (*kubectlMCPServer, error) {
+func newKubectlMCPServer(ctx context.Context, kubectlConfig, transport, sseSchema, sseHost string, ssePort int, tools tools.Tools, workDir string) (*kubectlMCPServer, error) {
 	s := &kubectlMCPServer{
 		kubectlConfig: kubectlConfig,
+		transport:     transport,
+		sseSchema:     sseSchema,
+		sseHost:       sseHost,
+		ssePort:       ssePort,
 		workDir:       workDir,
 		server: server.NewMCPServer(
 			"kubectl-ai",
@@ -56,7 +65,15 @@ func newKubectlMCPServer(ctx context.Context, kubectlConfig string, tools tools.
 	return s, nil
 }
 func (s *kubectlMCPServer) Serve(ctx context.Context) error {
-	return server.ServeStdio(s.server)
+	switch s.transport {
+	case "stdio":
+		return server.ServeStdio(s.server)
+	case "sse":
+		sseUrl := fmt.Sprintf("%s://%s:%d", s.sseSchema, s.sseHost, s.ssePort)
+		sseServer := server.NewSSEServer(s.server, server.WithBaseURL(sseUrl))
+		return sseServer.Start(fmt.Sprintf(":%d", s.ssePort))
+	}
+	return fmt.Errorf("unsupported transport %s", s.transport)
 }
 
 func (s *kubectlMCPServer) handleToolCall(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
