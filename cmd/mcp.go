@@ -81,8 +81,19 @@ func (s *kubectlMCPServer) handleToolCall(ctx context.Context, request mcp.CallT
 	log := klog.FromContext(ctx)
 
 	name := request.Params.Name
-	command := request.Params.Arguments["command"].(string)
-	modifiesResource := request.Params.Arguments["modifies_resource"].(string)
+
+	command := ""
+	obj, ok := request.Params.Arguments["command"]
+	if ok && obj != nil {
+		command = obj.(string)
+	}
+
+	modifiesResource := ""
+	obj, ok = request.Params.Arguments["modifies_resource"]
+	if ok && obj != nil {
+		modifiesResource = obj.(string)
+	}
+
 	log.Info("Received tool call", "tool", name, "command", command, "modifies_resource", modifiesResource)
 
 	ctx = context.WithValue(ctx, tools.KubeconfigKey, s.kubectlConfig)
